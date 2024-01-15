@@ -1,20 +1,15 @@
 """
 Author : HARSHAD M. KANANI
-Date : 26-12-2023
+Date : 15-01-2024
 Description : API for Receive Modbus Data.
 """
-
+version = 'Ver_Main_15.01.2024'
 
 from flask import Flask, request
 import json
 from pymodbus.client import ModbusSerialClient
 from pymodbus.transaction import ModbusAsciiFramer
 import time
-
-
-client = ModbusSerialClient(port='COM3', timeout=2, baudrate=9600, parity='E', stopbits=1, bytesize=7, method = 'ascii',framer=ModbusAsciiFramer)
-print(client)
-client.connect()
 
 
 app = Flask(__name__)
@@ -26,37 +21,79 @@ def home():
     else:
         return "Hello???????"
     
-    
-    
-@app.route("/modbus_data1", methods = ['GET', 'POST'])
-def modbus_data1():
+@app.route("/read_data", methods = ['GET', 'POST'])
+def read_data():
 
-    try:
-        if request.method == "GET":
-            
+    if request.method == "GET":
+        json_data = {'Register_Data': [], 'Time_Stamp': time.strftime('%Y-%m-%d %H:%M:%S')}
+        try:
+        
+            # client = ModbusSerialClient(port = 'COM6', timeout = 2, baudrate = 9600, parity = 'E', stopbits = 1, bytesize = 7, method = 'ascii',framer=ModbusAsciiFramer)
+            # print(client) 4096 default add
+            # client.connect()
+        
             rr = client.read_holding_registers(address = 4096, count = 100, slave = 1)
             
             data = rr.registers
+            
+            # client.close()
 
-            print("Length of Data ::::", len(data))
-            print("Data:::::", data)
-            json_data = {}
+            print(f"[ READ DATA ] [ {time.strftime('%Y-%m-%d %H:%M:%S')} ] [ LENGTH : {len(data)} ] : {data} ")
+            
             json_data["Register_Data"] = data
             json_data["Time_Stamp"] = time.strftime('%Y-%m-%d %H:%M:%S')
-            Send_data = json.dumps(json_data)
             
-            print("Send_data:::::::", Send_data)
+        except Exception as e:
+            print(f"[ NOT READ ] [ {request.url_rule} ] [ {time.strftime('%Y-%m-%d %H:%M:%S')} ] : ERROR IN CLIENT DATA READ : ", e)
+            return "Server is Not Responding. Please Check Your Method"
         
-            return Send_data
-        else:
-            return "Please use GET method only....."
+        print(f"[ SEND DATA ] [ {time.strftime('%Y-%m-%d %H:%M:%S')} ] : {json_data} ")
+        return json.dumps(json_data)  
+            
+    else:
+        print(f"[ WRONG METHOD ] [ {request.url_rule} ] [ {time.strftime('%Y-%m-%d %H:%M:%S')} ]")
+        return "Please Use GET Method Only....."
 
-    except Exception as e:
-        print(e)
-        return "Server is not responding. Please check your method"
+@app.route("/write_data", methods = ['GET', 'POST'])
+def write_data():
+    if request.method == "POST":
+        respone_msg = {"result": 0 }
+        try:
+            result = request.json
+            # print("result::::::: ", result)
+            addr = int(result["Start_Address"])
+            val = result["Values"]
+            co_unt = len(val)
+            
+            print(f"[ WRITE DATA ] [ {time.strftime('%Y-%m-%d %H:%M:%S')} ] : [ START ADDRESS : {addr} ] [ COUNT : {co_unt} ] [ VALUES : {val} ] ")
+            ww = client.write_registers(address = addr, values = val, count = co_unt, slave = 1)
+            respone_msg['result'] = 1
+        
+        except Exception as e:
+            print(f"[ NOT READ ] [ {request.url_rule} ] [ {time.strftime('%Y-%m-%d %H:%M:%S')} ] : ERROR IN CLIENT DATA WRITE : ", e)
+            return "Server is Not Responding. Please Check Your Method"
+        
+        return json.dumps(respone_msg)  
+        
+    else:
+        print(f"[ WRONG METHOD ] [ {request.url_rule} ] [ {time.strftime('%Y-%m-%d %H:%M:%S')} ]")
+        return "Please Use POST Method Only....."
 
+ 
+ 
+def detect_port():
+    global client
     
+    client = ModbusSerialClient(port='COM6', timeout=2, baudrate=9600, parity='E', stopbits=1, bytesize=7, method = 'ascii',framer=ModbusAsciiFramer)
+    print(client)
+    client.connect()
+    # client.   
     
-if __name__ == '__main__':  
+if __name__ == '__main__':
+    print(f"[ STARTING ] [ {time.strftime('%Y-%m-%d %H:%M:%S')} ] : WELCOME ")
+    
+    client = ModbusSerialClient(port = 'COM6', timeout = 2, baudrate = 9600, parity = 'E', stopbits = 1, bytesize = 7, method = 'ascii',framer=ModbusAsciiFramer)
+    print(f"[ CLIENT ] [ {time.strftime('%Y-%m-%d %H:%M:%S')} ] : [ {client} ] ")
+    client.connect()
 
-    app.run(host='0.0.0.0', port=5001,debug=True)
+    app.run(host='0.0.0.0', port=5009, debug=True, use_reloader = False)
